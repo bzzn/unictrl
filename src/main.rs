@@ -1,12 +1,12 @@
 use std::env;
 
-include!("models.rs");
-include!("unificlient.rs");
+mod unificlient;
+use unificlient::UnifiClient;
 
 fn main() {
-    let host: &str = &env::var("UNICTRL_HOST").unwrap_or("".to_string());
-    let username: &str = &env::var("UNICTRL_USERNAME").unwrap_or("".to_string());
-    let password: &str = &env::var("UNICTRL_PASSWORD").unwrap_or("".to_string());
+    let host = &env::var("UNICTRL_HOST").unwrap_or("".to_string());
+    let username = &env::var("UNICTRL_USERNAME").unwrap_or("".to_string());
+    let password = &env::var("UNICTRL_PASSWORD").unwrap_or("".to_string());
 
     if !host.starts_with("http") {
         println!("Controller host not set or invalid: {}", host);
@@ -15,14 +15,25 @@ fn main() {
 
     let unifi_client = UnifiClient::new(String::from(host));
     let host_status = unifi_client.status();
-    let host_state: &str = match host_status.meta.up {
+    let host_state = match host_status.meta.up {
         true => "Up",
            _ => "Down"
     };
     println!("Controller {} is {} - Version: {})", host, host_state, host_status.meta.server_version);
 
-    let logged_in: bool = unifi_client.login(username, password);
-    if !logged_in {
+    let mut authenticated = false;
+    let mut abort = false;
+    match unifi_client.login(username, password) {
+        Ok(r) => authenticated = r,
+        Err(err) => { abort = true; println!("ER: {}", err); },
+    };
+
+    if abort {
+        println!("Exiting...");
+        return;
+    }
+
+    if !authenticated {
         println!("Login failed for user: {} (password set: {})", username, password.len() > 0);
         return;
     }
@@ -32,18 +43,9 @@ fn main() {
 
     let active_clients = unifi_client.active_clients(si.data[0].name.as_str());
     for client in active_clients.data {
-        let hostname = match client.hostname {
-            Some(n) => n,
-            None => String::from("n/a")
-        };
-        let name = match client.name {
-            Some(n) => n,
-            None => String::from("n/a")
-        };
-        let note = match client.note {
-            Some(n) => n,
-            None => String::from("n/a")
-        };
+        let hostname = client.hostname.unwrap_or("n/a".to_string());
+        let name = client.name.unwrap_or("n/a".to_string());
+        let note = client.note.unwrap_or("n/a".to_string());
         println!("{:17} {:<15} {:<25} {:<20} {:<20}", client.mac, client.ip, hostname, name, note);
     }
 }
