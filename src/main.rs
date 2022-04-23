@@ -1,7 +1,7 @@
 use std::env;
 
 mod unificlient;
-use unificlient::UnifiClient;
+use { unificlient::UnifiClient, unificlient::UnifiClientError };
 
 fn main() {
     let host = &env::var("UNICTRL_HOST").unwrap_or("".to_string());
@@ -22,16 +22,13 @@ fn main() {
     println!("Controller {} is {} - Version: {})", host, host_state, host_status.meta.server_version);
 
     let mut authenticated = false;
-    let mut abort = false;
     match unifi_client.login(username, password) {
         Ok(r) => authenticated = r,
-        Err(err) => { abort = true; println!("ER: {}", err); },
+        Err(err) => match err {
+            UnifiClientError::AuthenticationFailure => { println!("Login: {}", err); },
+            UnifiClientError::ControllerUnreachable => { println!("Login: {}", err); },
+        },
     };
-
-    if abort {
-        println!("Exiting...");
-        return;
-    }
 
     if !authenticated {
         println!("Login failed for user: {} (password set: {})", username, password.len() > 0);
