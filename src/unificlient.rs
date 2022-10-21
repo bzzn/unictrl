@@ -104,8 +104,8 @@ impl UnifiActiveClientsResult {
             hostname: Some(String::from("")),
             note: Some(String::from("")),
             name: Some(String::from("")),
-            network: String::from(""),
-            ip: String::from(""),
+            network: Some(String::from("")),
+            ip: Some(String::from("")),
             uptime: i32::from(0)
         };
         empty.push(data);
@@ -121,9 +121,68 @@ pub struct UnifiActiveClientsData {
     pub hostname: Option<String>,
     pub note: Option<String>,
     pub name: Option<String>,
-    pub network: String,
-    pub ip: String,
+    pub network: Option<String>,
+    pub ip: Option<String>,
     pub uptime: i32
+}
+
+impl fmt::Display for UnifiActiveClientsData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let not_avail = String::from("n/a");
+        return write!(f, "{:<16} {:<16} {:<16} {:<16}",
+            &self.mac,
+            &self.ip.as_ref().unwrap_or(&not_avail),
+            &self.name.as_ref().unwrap_or(&not_avail),
+            &self.note.as_ref().unwrap_or(&not_avail),
+        );
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UnifiAllClientsResult {
+    pub data: Vec<UnifiAllClientsData>
+}
+
+impl UnifiAllClientsResult {
+    pub fn empty() -> Self {
+        let mut empty = Vec::new();
+        let data = UnifiAllClientsData {
+            mac: String::from(""),
+            hostname: Some(String::from("")),
+            note: Some(String::from("")),
+            name: Some(String::from("")),
+            network: Some(String::from("")),
+            ip: Some(String::from("")),
+            // uptime: i32::from(0)
+        };
+        empty.push(data);
+        return Self {
+            data: empty
+        };
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UnifiAllClientsData {
+    pub mac: String,
+    pub hostname: Option<String>,
+    pub note: Option<String>,
+    pub name: Option<String>,
+    pub network: Option<String>,
+    pub ip: Option<String>,
+    // pub uptime: i32
+}
+
+impl fmt::Display for UnifiAllClientsData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let not_avail = String::from("n/a");
+        return write!(f, "{:<16} {:<16} {:<16} {:<16}",
+            &self.mac,
+            &self.ip.as_ref().unwrap_or(&not_avail),
+            &self.name.as_ref().unwrap_or(&not_avail),
+            &self.note.as_ref().unwrap_or(&not_avail),
+        );
+    }
 }
 
 pub struct UnifiClient {
@@ -197,6 +256,16 @@ impl UnifiClient {
         return match result {
             Ok(r) => r.json::<UnifiActiveClientsResult>().unwrap(),
             Err(_) => UnifiActiveClientsResult::empty()
+        }
+    }
+
+    pub fn all_clients(&self, site: &str) -> UnifiAllClientsResult  {
+        let address = &self.address(&format!("/api/s/{}/stat/device", site));
+        let result = self.client.get(address).send();
+
+        return match result {
+            Ok(r) => r.json::<UnifiAllClientsResult>().unwrap(),
+            Err(_) => UnifiAllClientsResult::empty()
         }
     }
 }
